@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lab Figure Tracker</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tahoma&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Tahoma, "Segoe UI", sans-serif;
+      font-size: 13px;
+      background:
+        radial-gradient(ellipse at 60% 40%, #3a7bd5 0%, #1a4a8a 40%, #0d2b5e 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      color: #1a1a1a;
+    }
+
+    /* Vista Aero titlebar */
+    header {
+      background: linear-gradient(180deg,
+        rgba(180,210,255,0.55) 0%,
+        rgba(100,160,240,0.45) 45%,
+        rgba(60,120,210,0.6) 50%,
+        rgba(30,80,180,0.7) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.35);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.6),
+        0 2px 8px rgba(0,0,40,0.4);
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    }
+
+    header h1 {
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 0.3px;
+    }
+
+    header span {
+      font-size: 0.78rem;
+      opacity: 0.85;
+    }
+
+    /* Aero glass tab bar */
+    .tabs {
+      display: flex;
+      background: linear-gradient(180deg,
+        rgba(200,225,255,0.25) 0%,
+        rgba(120,170,240,0.2) 100%);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.25);
+      padding: 6px 20px 0;
+      gap: 2px;
+    }
+
+    .tab {
+      padding: 7px 18px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: bold;
+      color: rgba(255,255,255,0.85);
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      user-select: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      transition: background 0.15s;
+      position: relative;
+      top: 1px;
+    }
+
+    .tab:hover {
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.3);
+      color: white;
+    }
+
+    .tab.active {
+      background: linear-gradient(180deg,
+        rgba(235,245,255,0.95) 0%,
+        rgba(210,230,255,0.98) 100%);
+      border-color: rgba(100,150,220,0.6);
+      color: #1a3a6e;
+      text-shadow: none;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.9),
+        0 -1px 4px rgba(80,130,220,0.3);
+    }
+
+    /* Main content area */
+    .content {
+      padding: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .panel-header h2 {
+      font-size: 1rem;
+      font-weight: bold;
+      color: white;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    /* Aero glass panels */
+    .status-bar {
+      background: linear-gradient(180deg,
+        rgba(235,245,255,0.82) 0%,
+        rgba(210,228,255,0.75) 100%);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.9),
+        0 2px 8px rgba(0,0,60,0.25);
+      flex-wrap: wrap;
+    }
+
+    .status-bar label {
+      font-size: 0.78rem;
+      color: #2a4a8a;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .status-select {
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid #7090c0;
+      font-size: 0.82rem;
+      cursor: pointer;
+      font-family: inherit;
+      background: linear-gradient(180deg, #f0f6ff 0%, #ddeaff 100%);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .status-select.pending  { background: linear-gradient(180deg,#fffde0,#fff3a0); border-color:#c8a800; }
+    .status-select.in-progress { background: linear-gradient(180deg,#e0eeff,#b8d4ff); border-color:#5080d0; }
+    .status-select.complete { background: linear-gradient(180deg,#e0ffe8,#a8f0b8); border-color:#30a050; }
+
+    .notes-area {
+      width: 100%;
+      padding: 5px 8px;
+      border-radius: 3px;
+      border: 1px solid #7090c0;
+      font-size: 0.82rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 55px;
+      background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+      box-shadow: inset 0 1px 3px rgba(0,0,60,0.12);
+    }
+
+    .notes-area:focus {
+      outline: none;
+      border-color: #3060c0;
+      box-shadow: inset 0 1px 3px rgba(0,0,60,0.15), 0 0 4px rgba(60,120,220,0.4);
+    }
+
+    .figures-section h3 {
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 12px;
+      color: white;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .figures-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    /* Vista window/card style */
+    .figure-card {
+      background: linear-gradient(180deg,
+        rgba(240,248,255,0.92) 0%,
+        rgba(220,236,255,0.88) 100%);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.75);
+      border-radius: 6px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.9),
+        0 3px 10px rgba(0,0,60,0.3);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Vista-style window titlebar on each card */
+    .figure-card::before {
+      content: '';
+      display: block;
+      height: 4px;
+      background: linear-gradient(90deg, #4a90e8, #6ab0f8, #4a90e8);
+      border-radius: 6px 6px 0 0;
+    }
+
+    .figure-image-area {
+      width: 100%;
+      height: 190px;
+      background: linear-gradient(180deg, #e8f0fc 0%, #d5e5ff 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(100,150,220,0.3);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .figure-image-area img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .figure-image-area .placeholder {
+      text-align: center;
+      color: #6080b0;
+    }
+
+    .figure-image-area .placeholder svg {
+      display: block;
+      margin: 0 auto 6px;
+    }
+
+    .figure-image-area .placeholder span {
+      font-size: 0.75rem;
+    }
+
+    .figure-image-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .figure-card-body { padding: 10px 12px; }
+
+    .figure-label {
+      width: 100%;
+      border: none;
+      border-bottom: 1px solid #a0b8e0;
+      font-size: 0.82rem;
+      font-weight: bold;
+      padding: 3px 0;
+      margin-bottom: 6px;
+      font-family: inherit;
+      background: transparent;
+      color: #1a3a6e;
+    }
+
+    .figure-label:focus { outline: none; border-bottom-color: #3060c0; }
+
+    .figure-desc {
+      width: 100%;
+      border: none;
+      font-size: 0.78rem;
+      color: #4060a0;
+      font-family: inherit;
+      resize: none;
+      background: transparent;
+      min-height: 36px;
+    }
+
+    .figure-desc:focus { outline: none; }
+
+    .delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 6px;
+      background: linear-gradient(180deg, #e05050, #b02020);
+      color: white;
+      border: 1px solid #801010;
+      border-radius: 3px;
+      width: 18px;
+      height: 18px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+      line-height: 1;
+    }
+
+    .delete-btn:hover {
+      background: linear-gradient(180deg, #ff6060, #cc2020);
+    }
+
+    /* Vista glossy button */
+    .add-figure-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      background: linear-gradient(180deg,
+        rgba(180,210,255,0.9) 0%,
+        rgba(100,160,240,0.85) 45%,
+        rgba(60,120,220,0.9) 50%,
+        rgba(40,90,200,0.95) 100%);
+      color: white;
+      border: 1px solid rgba(30,70,180,0.8);
+      border-radius: 4px;
+      font-size: 0.82rem;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.5),
+        0 2px 4px rgba(0,0,60,0.3);
+    }
+
+    .add-figure-btn:hover {
+      background: linear-gradient(180deg,
+        rgba(200,225,255,0.95) 0%,
+        rgba(130,180,255,0.9) 45%,
+        rgba(80,140,235,0.95) 50%,
+        rgba(50,110,215,1) 100%);
+    }
+
+    .add-figure-btn:active {
+      background: linear-gradient(180deg,
+        rgba(40,90,200,0.95) 0%,
+        rgba(60,120,220,0.9) 100%);
+      box-shadow: inset 0 1px 3px rgba(0,0,60,0.4);
+    }
+
+    .save-notice {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.7);
+      margin-top: 10px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+
+    /* Scrollbar — Vista style */
+    ::-webkit-scrollbar { width: 14px; }
+    ::-webkit-scrollbar-track { background: #c8d8f0; border: 1px solid #a0b8e0; }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(90deg, #90b8f0, #6090d8);
+      border: 1px solid #5080c8;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Lab Figure Tracker</h1>
+    <span>Track progress for your assay figures</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('proliferation')">Proliferation Assay</div>
+  <div class="tab" onclick="switchTab('qpcr')">qPCR</div>
+  <div class="tab" onclick="switchTab('western')">Western Blot</div>
+</div>
+
+<div class="content">
+  <div id="panel-proliferation" class="panel active"></div>
+  <div id="panel-qpcr" class="panel"></div>
+  <div id="panel-western" class="panel"></div>
+</div>
+
+<script>
+  const TABS = {
+    proliferation: "Proliferation Assay",
+    qpcr: "qPCR",
+    western: "Western Blot"
+  }
+
+  let state = loadState()
+
+  function loadState() {
+    try {
+      const saved = localStorage.getItem("labTracker")
+      if (saved) return JSON.parse(saved)
+    } catch(e) {}
+    const s = {}
+    for (const key of Object.keys(TABS)) {
+      s[key] = { status: "pending", notes: "", figures: [] }
+    }
+    return s
+  }
+
+  function saveState() {
+    const toSave = {}
+    for (const key of Object.keys(TABS)) {
+      toSave[key] = {
+        status: state[key].status,
+        notes: state[key].notes,
+        figures: state[key].figures.map(f => ({
+          id: f.id,
+          label: f.label,
+          desc: f.desc,
+          image: f.image
+        }))
+      }
+    }
+    localStorage.setItem("labTracker", JSON.stringify(toSave))
+  }
+
+  function switchTab(key) {
+    document.querySelectorAll(".tab").forEach((t, i) => {
+      t.classList.toggle("active", Object.keys(TABS)[i] === key)
+    })
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"))
+    document.getElementById("panel-" + key).classList.add("active")
+  }
+
+  function renderPanel(key) {
+    const panel = document.getElementById("panel-" + key)
+    const data = state[key]
+
+    panel.innerHTML = `
+      <div class="panel-header">
+        <h2>${TABS[key]}</h2>
+      </div>
+      <div class="status-bar">
+        <div>
+          <label>Status</label><br/>
+          <select class="status-select ${data.status}" onchange="updateStatus('${key}', this)">
+            <option value="pending" ${data.status==='pending'?'selected':''}>Pending</option>
+            <option value="in-progress" ${data.status==='in-progress'?'selected':''}>In Progress</option>
+            <option value="complete" ${data.status==='complete'?'selected':''}>Complete</option>
+          </select>
+        </div>
+        <div style="flex:1; min-width:200px;">
+          <label>Notes</label><br/>
+          <textarea class="notes-area" placeholder="Add notes about this experiment..."
+            onchange="updateNotes('${key}', this.value)">${data.notes}</textarea>
+        </div>
+      </div>
+      <div class="figures-section">
+        <h3>Figures</h3>
+        <div class="figures-grid" id="grid-${key}">
+          ${data.figures.map(f => figureCardHTML(key, f)).join("")}
+        </div>
+        <button class="add-figure-btn" onclick="addFigure('${key}')">
+          + Add Figure
+        </button>
+        <p class="save-notice">Changes are saved automatically in your browser.</p>
+      </div>
+    `
+  }
+
+  function figureCardHTML(key, fig) {
+    return `
+      <div class="figure-card" id="card-${fig.id}">
+        <div class="figure-image-area">
+          ${fig.image
+            ? `<img src="${fig.image}" alt="${fig.label}"/>`
+            : `<div class="placeholder">
+                <svg width="36" height="36" fill="none" stroke="#cbd5e1" stroke-width="1.5" viewBox="0 0 24 24">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                  <path d="M21 15l-5-5L5 21"/>
+                </svg>
+                <span>Click to upload image</span>
+              </div>`
+          }
+          <input type="file" accept="image/*" onchange="uploadImage('${key}', '${fig.id}', this)"/>
+          <button class="delete-btn" onclick="deleteFigure('${key}', '${fig.id}')" title="Remove">&times;</button>
+        </div>
+        <div class="figure-card-body">
+          <input class="figure-label" value="${fig.label}" placeholder="Figure title"
+            onchange="updateFigureField('${key}', '${fig.id}', 'label', this.value)"/>
+          <textarea class="figure-desc" placeholder="Description / notes"
+            onchange="updateFigureField('${key}', '${fig.id}', 'desc', this.value)">${fig.desc}</textarea>
+        </div>
+      </div>
+    `
+  }
+
+  function updateStatus(key, select) {
+    state[key].status = select.value
+    select.className = "status-select " + select.value
+    saveState()
+  }
+
+  function updateNotes(key, val) {
+    state[key].notes = val
+    saveState()
+  }
+
+  function addFigure(key) {
+    const fig = { id: Date.now().toString(), label: "Figure " + (state[key].figures.length + 1), desc: "", image: "" }
+    state[key].figures.push(fig)
+    saveState()
+    const grid = document.getElementById("grid-" + key)
+    const div = document.createElement("div")
+    div.innerHTML = figureCardHTML(key, fig)
+    grid.appendChild(div.firstElementChild)
+  }
+
+  function deleteFigure(key, id) {
+    state[key].figures = state[key].figures.filter(f => f.id !== id)
+    saveState()
+    const card = document.getElementById("card-" + id)
+    if (card) card.remove()
+  }
+
+  function updateFigureField(key, id, field, val) {
+    const fig = state[key].figures.find(f => f.id === id)
+    if (fig) { fig[field] = val; saveState() }
+  }
+
+  function uploadImage(key, id, input) {
+    const file = input.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = e => {
+      const fig = state[key].figures.find(f => f.id === id)
+      if (fig) {
+        fig.image = e.target.result
+        saveState()
+        const area = input.closest(".figure-image-area")
+        area.innerHTML = `<img src="${e.target.result}" alt="figure"/>
+          <input type="file" accept="image/*" onchange="uploadImage('${key}', '${id}', this)"/>
+          <button class="delete-btn" onclick="deleteFigure('${key}', '${id}')" title="Remove">&times;</button>`
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Initial render
+  for (const key of Object.keys(TABS)) renderPanel(key)
+</script>
+</body>
+</html>
